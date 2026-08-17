@@ -10,7 +10,7 @@
 
 *Jason 'phr0zt' Moss*
 
-**English &nbsp;|&nbsp; Francais &nbsp;|&nbsp; Polski**
+**[English](en/README.md)** &nbsp;|&nbsp; **[Francais](fr/README.md)** &nbsp;|&nbsp; **[Polski](pl/README.md)**
 
 </div>
 

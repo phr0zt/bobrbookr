@@ -1,0 +1,84 @@
+@page { margin: 5%; }
+
+body {
+  font-family: Georgia, "Bitstream Charter", "Charis SIL", serif;
+  font-size: 1em;
+  line-height: 1.6;
+  text-align: justify;
+  hyphens: auto;
+  -webkit-hyphens: auto;
+  adobe-hyphenate: auto;
+  margin: 0 2%;
+  widows: 2;
+  orphans: 2;
+}
+
+h1 {
+  page-break-before: always;
+  break-before: page;
+  font-size: 1.6em;
+  line-height: 1.25;
+  text-align: left;
+  font-weight: normal;
+  letter-spacing: 0.01em;
+  margin: 2em 0 1.2em 0;
+  hyphens: none;
+}
+
+h2 {
+  font-size: 1.1em;
+  text-align: left;
+  font-weight: bold;
+  margin: 2em 0 0.6em 0;
+  hyphens: none;
+  page-break-after: avoid;
+}
+
+h3 {
+  font-size: 1em;
+  text-align: left;
+  font-style: italic;
+  font-weight: normal;
+  margin: 1.6em 0 0.5em 0;
+  hyphens: none;
+  page-break-after: avoid;
+}
+
+p {
+  margin: 0;
+  text-indent: 1.4em;
+}
+
+h1 + p, h2 + p, h3 + p, hr + p, blockquote + p,
+p.first, div.first p {
+  text-indent: 0;
+}
+
+hr {
+  border: none;
+  border-top: 1px solid currentColor;
+  width: 15%;
+  margin: 1.8em auto;
+  opacity: 0.45;
+}
+
+blockquote {
+  margin: 1.2em 1.6em;
+  font-style: italic;
+  text-indent: 0;
+}
+
+blockquote p { text-indent: 0; }
+
+em { font-style: italic; }
+strong { font-weight: bold; }
+
+ul, ol { margin: 1em 0 1em 1.4em; text-align: left; }
+li { margin-bottom: 0.4em; }
+
+/* title page */
+.titlepage { text-align: center; }
+
+nav#toc ol { list-style-type: none; margin-left: 0; padding-left: 0; }
+nav#toc li { margin-bottom: 0.9em; line-height: 1.35; }
+nav#toc a { text-decoration: none; }

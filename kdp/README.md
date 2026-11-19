@@ -1,6 +1,6 @@
 # KDP covers
 
-Nine JPGs, 300 DPI, sRGB, built by `./build_covers.py` from `src/front-art-clean-4x.jpg`.
+Nine JPGs (300 DPI, sRGB) plus a PDF of each print cover for KDP's print uploader, built by `./build_covers.py` from `src/front-art-clean-4x.jpg`.
 
 | | Size | Built for |
 |---|---|---|

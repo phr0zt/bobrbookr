@@ -130,6 +130,7 @@ def render(name, bg_img, W, H, lang=None, back=None, spine=None, tmp=None):
     subprocess.run(["pdftoppm", "-jpeg", "-jpegopt", "quality=95", "-singlefile", "-scale-to-x", str(px(W)),
                     "-scale-to-y", str(px(H)), str(Path(tmp) / "c.pdf"), str(out.with_suffix(""))], check=True)
     im = Image.open(out); im.save(out, quality=95, subsampling=0, dpi=(DPI, DPI))   # stamp 300 DPI
+    im.save(out.with_suffix(".pdf"), resolution=DPI, quality=95, subsampling=0)     # same image as a PDF, for KDP's print uploader
     return out
 
 def main():

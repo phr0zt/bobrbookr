@@ -21,9 +21,11 @@ TY0 = 61 / 1200                     # title's top edge
 SUB_Y = 1143.5 / 1200               # vertical centre of the subtitle line
 SUB = 0.0318                        # subtitle font size, as a fraction of the art height
 
-# interior page counts: paperback = the A5 PDFs in the repo minus their cover page.
+# Paperback: total cover width in inches, as KDP reports it ("Your expected cover size is ...").
+# EN is KDP's own number. FR and PL are estimates (EN's spine scaled by length) until KDP reports theirs.
+PB_WIDTH = {"EN": 12.384, "FR": 12.401, "PL": 12.390}
 # Hardcover: KDP's minimum is 75 pages, so 76 is a placeholder until the interior is re-set.
-PAGES = {"paperback": {"EN": 48, "FR": 54, "PL": 50}, "hardcover": {"EN": 76, "FR": 76, "PL": 76}}
+PAGES = {"hardcover": {"EN": 76, "FR": 76, "PL": 76}}
 
 TEXT = {
  "EN": dict(sub="WHY DOES BOBER DRINK BEER?",
@@ -143,18 +145,20 @@ def main():
             o = render(f"kindle/Rakszawa-Wisconsin-{lang}-kindle.jpg", bg, 0, 0)
             print(o.name, Image.open(o).size)
 
-            # Paperback, A5 trim 5.83 x 8.27: 0.125 bleed | back | spine | front | 0.125 bleed, 8.52 high.
-            # Art fills the height; it is slid sideways so the title is centred on the trimmed front.
-            tw, th = 5.83, 8.27
-            spine = PAGES["paperback"][lang] * 0.002252
-            W, H = round(0.25 + 2 * tw + spine, 3), th + 0.25
+            # Paperback, 6 x 9 trim: 0.125 bleed | back | spine | front | 0.125 bleed, 9.25 high.
+            # Total width is whatever KDP says it expects (PB_WIDTH); the spine is what is left over.
+            # The art is scaled until the title sits 0.2 in inside the trim, top-aligned, and the wall is
+            # continued below it; the subtitle sits at the foot.
+            tw, th = 6, 9
+            W, H = PB_WIDTH[lang], th + 0.25
+            spine = W - 0.25 - 2 * tw
             x0 = 0.125 + tw + spine
-            ah = px(H); aw = round(ah * A)
+            aw = round(min(px(H) * A, px(tw - 0.4) / (TX1 - TX0))); ah = round(aw / A)
             ax = px(x0) + round((px(tw) - (TX1 - TX0) * aw) / 2 - TX0 * aw)
             bg = canvas(px(W), px(H), px(x0), ax, 0, aw, ah)
-            subtitle(bg, lang, ax + (TX0 + TX1) / 2 * aw, SUB_Y * ah, (TX1 - TX0) * aw, SUB * ah)
-            o = render(f"paperback/Rakszawa-Wisconsin-{lang}-paperback-A5.jpg", bg, W, H, lang,
-                       back=(0.125 + 0.6, 0.125 + 0.75, tw - 1.2, H - 0.125 - 0.95, 10.5), tmp=tmp)
+            subtitle(bg, lang, ax + (TX0 + TX1) / 2 * aw, px(H - 0.125 - 0.5), (TX1 - TX0) * aw, SUB * ah)
+            o = render(f"paperback/Rakszawa-Wisconsin-{lang}-paperback-6x9.jpg", bg, W, H, lang,
+                       back=(0.125 + 0.65, 0.125 + 0.8, tw - 1.3, H - 0.125 - 1.0, 10.8), tmp=tmp)
             print(o.name, Image.open(o).size, f"{W} x {H} in, spine {spine:.3f} in")
 
             # Hardcover (case laminate), trim 5.5 x 8.5: 0.591 wrap | board | spine | board | 0.591 wrap.

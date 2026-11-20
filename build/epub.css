@@ -82,3 +82,6 @@ li { margin-bottom: 0.4em; }
 nav#toc ol { list-style-type: none; margin-left: 0; padding-left: 0; }
 nav#toc li { margin-bottom: 0.9em; line-height: 1.35; }
 nav#toc a { text-decoration: none; }
+
+/* plates */
+img.plate { display: block; max-width: 100%; height: auto; margin: 1em auto; }

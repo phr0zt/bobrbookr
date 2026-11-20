@@ -1,0 +1,5 @@
+/* KDP paperback interior: loaded after print-hardcover.css, changes only the page to 6 x 9 in. */
+@page { size: 6in 9in; margin: 0.85in 0.75in 0.95in 0.75in; }
+@page :left  { margin-right: 0.9in; }
+@page :right { margin-left: 0.9in; }
+.plate img { max-height: 7.15in; }

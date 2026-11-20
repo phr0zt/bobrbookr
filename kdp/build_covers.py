@@ -2,9 +2,9 @@
 """Build the KDP covers as JPG: Kindle, paperback and hardcover, in EN, FR and PL.
 
 Usage: ./build_covers.py            (needs Pillow, numpy, weasyprint, pdftoppm)
-Front art: src/front-art-clean-4x.jpg = book/cover.png with the English subtitle removed, upscaled 4x.
-Sizes follow KDP's cover rules (white paper, 0.002252 in per page). If KDP's cover calculator gives
-a different total width for your final page count, change PAGES below and rebuild.
+Front art: src/front-art-remix.jpg, with no lettering on it; the title and subtitle are set here.
+Print sizes follow KDP's cover rules (white paper, 0.002252 in per page) and the page counts are read
+from the interior PDFs that build_interior.sh makes, so run that first.
 """
 import subprocess, tempfile
 from pathlib import Path
@@ -15,20 +15,10 @@ HERE = Path(__file__).resolve().parent
 FONTS = Path.home() / ".local/share/fonts/free-font-library/google-fonts/fonts-HEAD/ofl"
 MONT = str(FONTS / "montserrat/Montserrat[wght].ttf")
 DPI = 300
-A = 896 / 1200                      # art width / height
-TX0, TX1 = 67 / 896, 830 / 896      # title's left and right edge, as a fraction of the art width
-TY0 = 61 / 1200                     # title's top edge
-SUB_Y = 1143.5 / 1200               # vertical centre of the subtitle line
-SUB = 0.0318                        # subtitle font size, as a fraction of the art height
+ART = "src/front-art-remix.jpg"
 
-# Paperback: total cover width in inches, as KDP reports it ("Your expected cover size is ...").
-# EN is KDP's own number. FR and PL are estimates (EN's spine scaled by length) until KDP reports theirs.
-PB_WIDTH = {"EN": 12.384, "FR": 12.401, "PL": 12.390}
-# Hardcover: the remixed front art (no lettering on it; the title is set here), and the page count,
-# read from the interior PDF that build_interior.sh makes, so the spine always matches the book.
-REMIX = "src/front-art-remix.jpg"
-def pages(lang):
-    pdf = HERE / f"hardcover/Rakszawa-Wisconsin-{lang}-hardcover-interior.pdf"
+def pages(lang, fmt):
+    pdf = HERE / f"{fmt}/Rakszawa-Wisconsin-{lang}-{fmt}-interior.pdf"
     out = subprocess.run(["pdfinfo", str(pdf)], check=True, capture_output=True, text=True).stdout
     return int(out.split("Pages:")[1].split()[0])
 
@@ -81,19 +71,21 @@ def subtitle(im, lang, cx, cy, maxw, size, s=None, weight="Bold", track=0.13):
     im.paste((0, 0, 0), mask=shadow); im.paste((255, 255, 255), mask=layer)
     return size
 
-def canvas(W, H, x0, ax, ay, aw, ah, art="src/front-art-clean-4x.jpg", plain=True):
-    """Full wrap: the art at (ax, ay). Where it does not reach the edge, the wall is continued by
-    mirroring the art (above it only the strip over the title is mirrored, so no lettering repeats).
-    Everything left of the front fold x0 (spine + back) is the front mirrored, blurred and darkened."""
-    a = np.asarray(Image.open(HERE / art).convert("RGB").resize((aw, ah), Image.LANCZOS))
-    l, t, r, b = max(0, ax - x0), max(0, ay), max(0, W - ax - aw), max(0, H - ay - ah)
-    # mirror only as far as the art stays plain: above the title, right of it, below the table
-    t1, r1, b1 = min(t, round(TY0 * ah * .8)), min(r, round((1 - TX1) * aw * .8)), min(b, round(.125 * ah))
-    if not plain: t1, r1, b1 = t, r, b      # art with no lettering on it can be mirrored all the way
-    a = np.pad(a, ((t1, b1), (l, r1), (0, 0)), mode="reflect")
-    a = np.pad(a, ((t - t1, b - b1), (0, r - r1), (0, 0)), mode="edge")
-    ox, oy = (x0 - ax if ax < x0 else 0), (-ay if ay < 0 else 0)
-    front = Image.fromarray(a).crop((ox, oy, ox + W - x0, oy + H))
+def title(im, lang, cx, top, maxw):
+    """Title in two lines with the subtitle under it, centred on cx, in a box maxw wide. All px."""
+    ts = subtitle(im, lang, cx, top + maxw * .09, maxw, maxw * .24, s="RAKSZAWA,", weight="ExtraBold", track=0.02)
+    y = top + maxw * .09
+    subtitle(im, lang, cx, y + ts * 1.08, maxw, ts, s="WISCONSIN", weight="ExtraBold", track=0.02)
+    subtitle(im, lang, cx, y + ts * 2.0, maxw, ts * 0.27)
+
+def canvas(W, H, x0, ax, ay, aw, ah):
+    """Full wrap: the art at (ax, ay), mirrored where it does not reach the edge. Everything left of
+    the front fold x0 (spine + back) is the front mirrored, blurred and darkened."""
+    a = np.asarray(Image.open(HERE / ART).convert("RGB").resize((aw, ah), Image.LANCZOS))
+    t, r, b = max(0, ay), max(0, W - ax - aw), max(0, H - ay - ah)
+    a = np.pad(a, ((t, b), (0, r), (0, 0)), mode="reflect")
+    oy = -ay if ay < 0 else 0
+    front = Image.fromarray(a).crop((0, oy, W - x0, oy + H))
     if not x0: return front
     back = front.transpose(Image.FLIP_LEFT_RIGHT).resize((x0, H)).filter(ImageFilter.GaussianBlur(60))
     back = Image.blend(back, Image.new("RGB", back.size, (14, 16, 18)), 0.66)
@@ -144,49 +136,42 @@ def render(name, bg_img, W, H, lang=None, back=None, spine=None, tmp=None):
     return out
 
 def main():
+    with Image.open(HERE / ART) as r: ra = r.width / r.height
     with tempfile.TemporaryDirectory() as tmp:
         for lang in TEXT:
             # Kindle: the whole art, 2560 px tall (KDP's recommended height)
-            w, h = round(2560 * A), 2560
+            w, h = round(2560 * ra), 2560
             bg = canvas(w, h, 0, 0, 0, w, h)
-            subtitle(bg, lang, (TX0 + TX1) / 2 * w, SUB_Y * h, (TX1 - TX0) * w, SUB * h)
+            title(bg, lang, w / 2, h * .05, w * .84)
             o = render(f"kindle/Rakszawa-Wisconsin-{lang}-kindle.jpg", bg, 0, 0)
             print(o.name, Image.open(o).size)
 
             # Paperback, 6 x 9 trim: 0.125 bleed | back | spine | front | 0.125 bleed, 9.25 high.
-            # Total width is whatever KDP says it expects (PB_WIDTH); the spine is what is left over.
-            # The art is scaled until the title sits 0.2 in inside the trim, top-aligned, and the wall is
-            # continued below it; the subtitle sits at the foot.
+            # The art fills the front from the fold to the bleed; the title sits 0.45 in inside the trim.
+            # No spine text: KDP only allows it from 79 pages.
             tw, th = 6, 9
-            W, H = PB_WIDTH[lang], th + 0.25
-            spine = W - 0.25 - 2 * tw
+            spine = pages(lang, "paperback") * 0.002252
+            W, H = round(0.25 + 2 * tw + spine, 3), th + 0.25
             x0 = 0.125 + tw + spine
-            aw = round(min(px(H) * A, px(tw - 0.4) / (TX1 - TX0))); ah = round(aw / A)
-            ax = px(x0) + round((px(tw) - (TX1 - TX0) * aw) / 2 - TX0 * aw)
-            bg = canvas(px(W), px(H), px(x0), ax, 0, aw, ah)
-            subtitle(bg, lang, ax + (TX0 + TX1) / 2 * aw, px(H - 0.125 - 0.5), (TX1 - TX0) * aw, SUB * ah)
+            ah = px(H); aw = max(round(ah * ra), px(W) - px(x0))
+            bg = canvas(px(W), px(H), px(x0), px(x0), 0, aw, ah)
+            title(bg, lang, px(x0 + tw / 2), px(0.125 + 0.5), px(tw - 0.9))
             o = render(f"paperback/Rakszawa-Wisconsin-{lang}-paperback-6x9.jpg", bg, W, H, lang,
                        back=(0.125 + 0.65, 0.125 + 0.8, tw - 1.3, H - 0.125 - 1.0, 10.8), tmp=tmp)
             print(o.name, Image.open(o).size, f"{W} x {H} in, spine {spine:.3f} in")
 
             # Hardcover (case laminate), trim 5.5 x 8.5: 0.591 wrap | board | spine | board | 0.591 wrap.
             # Board = trim + 0.197 wide, + 0.236 high; spine = paper + 0.189 for the boards.
-            # The remixed art fills the front board from the hinge outwards and is mirrored round the
-            # wrap. Text must stay 0.635 in from the board edges and 0.4 in off the hinge, so the title
-            # is set at the top of that box with the subtitle under it, clear of the figure below.
+            # The art fills the front board from the hinge outwards and is mirrored round the wrap.
+            # Text must stay 0.635 in from the board edges and 0.4 in off the hinge.
             wrap, bw_, bh = 0.591, 5.5 + 0.197, 8.5 + 0.236
-            spine = pages(lang) * 0.002252 + 0.189
+            spine = pages(lang, "hardcover") * 0.002252 + 0.189
             W, H = round(2 * wrap + 2 * bw_ + spine, 3), round(bh + 2 * wrap, 3)
             x0 = wrap + bw_ + spine
-            with Image.open(HERE / REMIX) as r: ra = r.width / r.height
             ah = px(bh) + 60; aw = round(ah * ra)
-            ax, ay = px(x0), px(wrap) - 30
-            bg = canvas(px(W), px(H), px(x0), ax, ay, aw, ah, art=REMIX, plain=False)
-            cx, sw_ = px(x0 + 0.4) + px(bw_ - 0.4 - 0.635) / 2, px(bw_ - 0.4 - 0.635)   # safe box
-            ty = px(wrap + 0.635 + 0.42)
-            ts = subtitle(bg, lang, cx, ty, sw_, px(1.1), s="RAKSZAWA,", weight="ExtraBold", track=0.02)
-            subtitle(bg, lang, cx, ty + ts * 1.08, sw_, ts, s="WISCONSIN", weight="ExtraBold", track=0.02)
-            subtitle(bg, lang, cx, ty + ts * 2.0, sw_, ts * 0.27)
+            bg = canvas(px(W), px(H), px(x0), px(x0), px(wrap) - 30, aw, ah)
+            sw_ = px(bw_ - 0.4 - 0.635)
+            title(bg, lang, px(x0 + 0.4) + sw_ / 2, px(wrap + 0.635), sw_)
             o = render(f"hardcover/Rakszawa-Wisconsin-{lang}-hardcover-5.5x8.5.jpg", bg, W, H, lang,
                        back=(wrap + 0.75, wrap + 0.9, bw_ - 0.75 - 0.6, wrap + bh - 0.635 - 0.55, 10.2),
                        spine=(wrap + bw_ + spine / 2, spine), tmp=tmp)

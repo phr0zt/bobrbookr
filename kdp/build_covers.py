@@ -24,8 +24,13 @@ SUB = 0.0318                        # subtitle font size, as a fraction of the a
 # Paperback: total cover width in inches, as KDP reports it ("Your expected cover size is ...").
 # EN is KDP's own number. FR and PL are estimates (EN's spine scaled by length) until KDP reports theirs.
 PB_WIDTH = {"EN": 12.384, "FR": 12.401, "PL": 12.390}
-# Hardcover: KDP's minimum is 75 pages, so 76 is a placeholder until the interior is re-set.
-PAGES = {"hardcover": {"EN": 76, "FR": 76, "PL": 76}}
+# Hardcover: the remixed front art (no lettering on it; the title is set here), and the page count,
+# read from the interior PDF that build_interior.sh makes, so the spine always matches the book.
+REMIX = "src/front-art-remix.jpg"
+def pages(lang):
+    pdf = HERE / f"hardcover/Rakszawa-Wisconsin-{lang}-hardcover-interior.pdf"
+    out = subprocess.run(["pdfinfo", str(pdf)], check=True, capture_output=True, text=True).stdout
+    return int(out.split("Pages:")[1].split()[0])
 
 TEXT = {
  "EN": dict(sub="WHY DOES BOBER DRINK BEER?",
@@ -56,12 +61,13 @@ TEXT = {
 
 def px(inch): return round(inch * DPI)
 
-def subtitle(im, lang, cx, cy, maxw, size):
-    """Set the subtitle in this language, centred on (cx, cy), shrunk until it fits maxw. All px."""
-    s = TEXT[lang]["sub"]; size = round(size)
+def subtitle(im, lang, cx, cy, maxw, size, s=None, weight="Bold", track=0.13):
+    """Set the subtitle in this language (or the line s), centred on (cx, cy), shrunk until it fits
+    maxw. All px. Returns the font size used."""
+    s = s or TEXT[lang]["sub"]; size = round(size)
     while True:
-        f = ImageFont.truetype(MONT, size); f.set_variation_by_name("Bold")
-        gap = 0.13 * size
+        f = ImageFont.truetype(MONT, size); f.set_variation_by_name(weight)
+        gap = track * size
         adv = [f.getlength(c) for c in s]
         tw = sum(adv) + gap * (len(s) - 1)
         if tw <= maxw: break
@@ -73,15 +79,17 @@ def subtitle(im, lang, cx, cy, maxw, size):
     shadow = Image.new("L", im.size, 0); shadow.paste(layer, (round(size * .04), round(size * .08)))
     shadow = shadow.filter(ImageFilter.GaussianBlur(size * .14)).point(lambda v: int(v * .75))
     im.paste((0, 0, 0), mask=shadow); im.paste((255, 255, 255), mask=layer)
+    return size
 
-def canvas(W, H, x0, ax, ay, aw, ah):
+def canvas(W, H, x0, ax, ay, aw, ah, art="src/front-art-clean-4x.jpg", plain=True):
     """Full wrap: the art at (ax, ay). Where it does not reach the edge, the wall is continued by
     mirroring the art (above it only the strip over the title is mirrored, so no lettering repeats).
     Everything left of the front fold x0 (spine + back) is the front mirrored, blurred and darkened."""
-    a = np.asarray(Image.open(HERE / "src/front-art-clean-4x.jpg").convert("RGB").resize((aw, ah), Image.LANCZOS))
+    a = np.asarray(Image.open(HERE / art).convert("RGB").resize((aw, ah), Image.LANCZOS))
     l, t, r, b = max(0, ax - x0), max(0, ay), max(0, W - ax - aw), max(0, H - ay - ah)
     # mirror only as far as the art stays plain: above the title, right of it, below the table
     t1, r1, b1 = min(t, round(TY0 * ah * .8)), min(r, round((1 - TX1) * aw * .8)), min(b, round(.125 * ah))
+    if not plain: t1, r1, b1 = t, r, b      # art with no lettering on it can be mirrored all the way
     a = np.pad(a, ((t1, b1), (l, r1), (0, 0)), mode="reflect")
     a = np.pad(a, ((t - t1, b - b1), (0, r - r1), (0, 0)), mode="edge")
     ox, oy = (x0 - ax if ax < x0 else 0), (-ay if ay < 0 else 0)
@@ -163,18 +171,22 @@ def main():
 
             # Hardcover (case laminate), trim 5.5 x 8.5: 0.591 wrap | board | spine | board | 0.591 wrap.
             # Board = trim + 0.197 wide, + 0.236 high; spine = paper + 0.189 for the boards.
-            # Text must stay 0.635 in from the board edges and 0.4 in off the hinge, so the art is scaled
-            # until the title fits that box and sits at the top of it; the wall is continued below and
-            # around the wrap, and the subtitle moves down to the foot of the safe box.
+            # The remixed art fills the front board from the hinge outwards and is mirrored round the
+            # wrap. Text must stay 0.635 in from the board edges and 0.4 in off the hinge, so the title
+            # is set at the top of that box with the subtitle under it, clear of the figure below.
             wrap, bw_, bh = 0.591, 5.5 + 0.197, 8.5 + 0.236
-            spine = PAGES["hardcover"][lang] * 0.002252 + 0.189
+            spine = pages(lang) * 0.002252 + 0.189
             W, H = round(2 * wrap + 2 * bw_ + spine, 3), round(bh + 2 * wrap, 3)
             x0 = wrap + bw_ + spine
-            aw = round(px(bw_ - 0.4 - 0.635) / (TX1 - TX0)); ah = round(aw / A)
-            ax = px(x0 + 0.4) - round(TX0 * aw)
-            ay = px(wrap + 0.635) - round(TY0 * ah)
-            bg = canvas(px(W), px(H), px(x0), ax, ay, aw, ah)
-            subtitle(bg, lang, ax + (TX0 + TX1) / 2 * aw, px(wrap + bh - 0.635 - 0.13), (TX1 - TX0) * aw, SUB * ah)
+            with Image.open(HERE / REMIX) as r: ra = r.width / r.height
+            ah = px(bh) + 60; aw = round(ah * ra)
+            ax, ay = px(x0), px(wrap) - 30
+            bg = canvas(px(W), px(H), px(x0), ax, ay, aw, ah, art=REMIX, plain=False)
+            cx, sw_ = px(x0 + 0.4) + px(bw_ - 0.4 - 0.635) / 2, px(bw_ - 0.4 - 0.635)   # safe box
+            ty = px(wrap + 0.635 + 0.42)
+            ts = subtitle(bg, lang, cx, ty, sw_, px(1.1), s="RAKSZAWA,", weight="ExtraBold", track=0.02)
+            subtitle(bg, lang, cx, ty + ts * 1.08, sw_, ts, s="WISCONSIN", weight="ExtraBold", track=0.02)
+            subtitle(bg, lang, cx, ty + ts * 2.0, sw_, ts * 0.27)
             o = render(f"hardcover/Rakszawa-Wisconsin-{lang}-hardcover-5.5x8.5.jpg", bg, W, H, lang,
                        back=(wrap + 0.75, wrap + 0.9, bw_ - 0.75 - 0.6, wrap + bh - 0.635 - 0.55, 10.2),
                        spine=(wrap + bw_ + spine / 2, spine), tmp=tmp)

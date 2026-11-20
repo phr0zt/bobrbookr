@@ -1,0 +1,73 @@
+/* KDP hardcover interior: 5.5 x 8.5 in trim, black ink, no bleed.
+   KDP wants at least 0.375 in on the inside margin up to 150 pages; this leaves more. */
+@page {
+  size: 5.5in 8.5in;
+  margin: 0.8in 0.65in 0.9in 0.65in;
+  @bottom-center { content: counter(page); font: 9pt "Source Serif 4", Georgia, serif; color: #333; }
+}
+@page :left  { margin-right: 0.85in; }   /* the inside margin is on the right of a left page */
+@page :right { margin-left: 0.85in; }
+@page :blank { @bottom-center { content: none; } }
+@page bare   { @bottom-center { content: none; } }
+
+html { font-size: 11.5pt; }
+body {
+  font-family: "Source Serif 4", Georgia, "DejaVu Serif", serif;
+  line-height: 1.56;
+  text-align: justify;
+  hyphens: auto;
+  color: #000;
+  margin: 0;
+}
+
+/* front matter and plates carry no page number */
+.half, .titlepage, .copyright, .plate, nav#TOC { page: bare; }
+.half { break-after: page; text-align: center; padding-top: 2.2in; font-size: 15pt; letter-spacing: .08em; text-transform: uppercase; }
+.titlepage { break-before: right; break-after: page; text-align: center; hyphens: none; }
+.titlepage h1 { break-before: auto; counter-increment: none; font-size: 25pt; text-align: center; margin: .9in 0 .35in; padding: 0; }
+.titlepage h1::before { content: none; }
+.titlepage h2 { font-size: 13pt; text-align: center; margin: 0 0 .3in; }
+.titlepage h3 { font-size: 10.5pt; font-style: italic; font-weight: normal; margin: 0; }
+.titlepage p { text-indent: 0; text-align: center; font-size: 9.5pt; line-height: 1.45; margin: .55em 0; }
+.titlepage hr { margin: .35in auto; }
+.copyright { break-after: page; padding-top: 4.6in; font-size: 8.5pt; line-height: 1.5; text-align: left; hyphens: none; }
+.copyright p { text-indent: 0; margin: 0 0 .7em; }
+
+/* contents, with page numbers */
+nav#TOC { break-before: right; break-after: page; }
+nav#TOC h2, h1#toc-title { font-size: 15pt; font-weight: normal; margin: .6in 0 .4in; text-align: left; }
+nav#TOC ul { list-style: none; padding: 0; margin: 0; }
+nav#TOC li { margin: 1em 0; line-height: 1.3; text-align: left; hyphens: none; }
+nav#TOC a { text-decoration: none; color: #000; display: block; padding-right: 2em; position: relative; }
+nav#TOC a::after { content: target-counter(attr(href url), page); position: absolute; right: 0; bottom: 0; }
+
+/* a plate is a left page; the chapter opens on the right page facing it */
+.plate { break-before: left; text-align: center; margin: 0; }
+.plate img { width: 100%; max-height: 6.75in; object-fit: contain; display: block; margin: 0 auto; }
+.plate.tail { break-before: page; }
+.plate p { text-indent: 0; margin: 0; }
+
+body { counter-reset: chapter; }
+h1 {
+  break-before: right;
+  counter-increment: chapter;
+  font-size: 19pt;
+  line-height: 1.2;
+  text-align: left;
+  font-weight: normal;
+  margin: 0 0 1.5em 0;
+  padding-top: .9in;
+  hyphens: none;
+}
+h1::before { content: counter(chapter); display: block; font-size: 34pt; line-height: 1; margin-bottom: .22in; color: #000; }
+h1#toc-title { break-before: auto; counter-increment: none; padding-top: 0; }
+h1#toc-title::before { content: none; }
+
+h2 { font-size: 11.5pt; font-weight: bold; text-align: left; margin: 1.9em 0 .55em; hyphens: none; break-after: avoid; }
+p { margin: 0; text-indent: 1.3em; orphans: 2; widows: 2; }
+h1 + p, h2 + p, hr + p, blockquote + p { text-indent: 0; }
+hr { border: none; border-top: 1px solid #777; width: 14%; margin: 1.6em auto; }
+blockquote { margin: 1.1em 1.4em; font-style: italic; }
+blockquote p { text-indent: 0; }
+table { border-collapse: collapse; margin: 1.2em auto; font-size: 9.5pt; text-align: left; hyphens: none; }
+th, td { padding: .25em .6em; border-bottom: .5pt solid #999; }
